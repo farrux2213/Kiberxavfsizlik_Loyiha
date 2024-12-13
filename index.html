@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A5/1 Cipher</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        padding: 0;
+        background-color: #f9f9f9;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .container {
+        max-width: 400px;
+        margin: auto;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .container input,
+      .container button {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+
+      .container button {
+        background: #007bff;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+      }
+
+      .container button:hover {
+        background: #0056b3;
+      }
+
+      #result-container {
+        margin-top: 20px;
+        padding: 10px;
+        background: #e9ecef;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+
+      #result-container pre {
+        margin: 0;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>A5/1 Cipher</h1>
+    <div class="container">
+      <input
+        id="plaintext"
+        type="text"
+        placeholder="Enter binary text (e.g., 101010)"
+      />
+      <button id="encrypt">Encrypt</button>
+      <button id="decrypt">Decrypt</button>
+      <div id="result-container"></div>
+    </div>
+
+    <script>
+      // A5/1 Cipher JavaScript Implementation (including your logic)
+      class A51Cipher {
+        constructor(key) {
+          if (key.length !== 64) {
+            throw new Error("Kalit 64 bitli bo'lishi kerak.");
+          }
+
+          this.initialLfsr1 = key.slice(0, 19).split("").map(Number);
+          this.initialLfsr2 = key.slice(19, 41).split("").map(Number);
+          this.initialLfsr3 = key.slice(41).split("").map(Number);
+
+          this.reset();
+
+          this.taps = {
+            lfsr1: [13, 16, 17, 18],
+            lfsr2: [20, 21],
+            lfsr3: [7, 20, 21, 22],
+          };
+
+          this.majorityBits = [8, 10, 10];
+        }
+
+        reset() {
+          this.lfsr1 = [...this.initialLfsr1];
+          this.lfsr2 = [...this.initialLfsr2];
+          this.lfsr3 = [...this.initialLfsr3];
+        }
+
+        majorityVote() {
+          const bits = [
+            this.lfsr1[this.majorityBits[0]],
+            this.lfsr2[this.majorityBits[1]],
+            this.lfsr3[this.majorityBits[2]],
+          ];
+          return bits.reduce((a, b) => a + b) > 1 ? 1 : 0;
+        }
+
+        step() {
+          const majority = this.majorityVote();
+
+          if (this.lfsr1[this.majorityBits[0]] === majority) {
+            const feedback = this.taps.lfsr1.reduce(
+              (acc, pos) => acc ^ this.lfsr1[pos],
+              0
+            );
+            this.lfsr1 = [feedback, ...this.lfsr1.slice(0, -1)];
+          }
+
+          if (this.lfsr2[this.majorityBits[1]] === majority) {
+            const feedback = this.taps.lfsr2.reduce(
+              (acc, pos) => acc ^ this.lfsr2[pos],
+              0
+            );
+            this.lfsr2 = [feedback, ...this.lfsr2.slice(0, -1)];
+          }
+
+          if (this.lfsr3[this.majorityBits[2]] === majority) {
+            const feedback = this.taps.lfsr3.reduce(
+              (acc, pos) => acc ^ this.lfsr3[pos],
+              0
+            );
+            this.lfsr3 = [feedback, ...this.lfsr3.slice(0, -1)];
+          }
+
+          return this.lfsr1.at(-1) ^ this.lfsr2.at(-1) ^ this.lfsr3.at(-1);
+        }
+
+        generateKeystream(length) {
+          return Array.from({ length }, () => this.step());
+        }
+
+        encrypt(plaintext) {
+          this.reset();
+          const plaintextBits = plaintext.split("").map(Number);
+          const keystream = this.generateKeystream(plaintextBits.length);
+          return plaintextBits.map((bit, i) => bit ^ keystream[i]).join("");
+        }
+
+        decrypt(ciphertext) {
+          return this.encrypt(ciphertext);
+        }
+      }
+
+      // Your DOM-based logic for A5/1 Cipher
+      document.addEventListener("DOMContentLoaded", () => {
+        const cipher = new A51Cipher(
+          "1101001110111100100101101101111010100100111101111010010011011010"
+        );
+
+        const plaintextInput = document.getElementById("plaintext");
+        const encryptButton = document.getElementById("encrypt");
+        const decryptButton = document.getElementById("decrypt");
+        const resultContainer = document.getElementById("result-container");
+
+        const displayResult = (title, result) => {
+          resultContainer.innerHTML = `
+              <strong>${title}</strong>
+              <pre>${result}</pre>
+          `;
+        };
+
+        encryptButton.addEventListener("click", () => {
+          const plaintext = plaintextInput.value.trim();
+          if (!/^[01]+$/.test(plaintext)) {
+            displayResult(
+              "Error",
+              "Invalid input! Please enter binary digits only."
+            );
+            return;
+          }
+          const ciphertext = cipher.encrypt(plaintext);
+          displayResult("Encrypted Text", ciphertext);
+        });
+
+        decryptButton.addEventListener("click", () => {
+          const ciphertext = plaintextInput.value.trim();
+          if (!/^[01]+$/.test(ciphertext)) {
+            displayResult(
+              "Error",
+              "Invalid input! Please enter binary digits only."
+            );
+            return;
+          }
+          const decryptedText = cipher.decrypt(ciphertext);
+          displayResult("Decrypted Text", decryptedText);
+        });
+      });
+    </script>
+  </body>
+</html>
